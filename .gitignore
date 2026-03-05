@@ -1,0 +1,12 @@
+profiles*/
+trash/
+logs/
+data/fineweb10B/
+data/fineweb100B/
+data/finewebedu100B/
+data/finewebedu100B-pro/
+data/finewebedu100B_spool/
+data/fineweb-edu/
+swanlog/
+scratch
+*.pyc
