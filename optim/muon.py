@@ -17,6 +17,7 @@ def zeropower_via_svd(G, steps=None):
     U, S, V = G.svd()
     return U @ V.T
 
+@torch.compile
 def zeropower_via_newtonschulz5(G, steps=10, eps=1e-7):
     """
     Newton-Schulz iteration to compute the zeroth power / orthogonalization of G. We opt to use a
@@ -41,17 +42,6 @@ def zeropower_via_newtonschulz5(G, steps=10, eps=1e-7):
         X = X.T
     return X
 
-def _maybe_compile(fn):
-    compile_fn = getattr(torch, "compile", None)
-    if not callable(compile_fn):
-        return fn
-    try:
-        return compile_fn(fn)
-    except Exception:
-        return fn
-
-
-zeropower_via_newtonschulz5 = _maybe_compile(zeropower_via_newtonschulz5)
 zeropower_backends = dict(svd=zeropower_via_svd, newtonschulz5=zeropower_via_newtonschulz5)
 
 class Muon(torch.optim.Optimizer):

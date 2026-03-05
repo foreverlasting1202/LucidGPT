@@ -242,9 +242,10 @@ def setup_distributed():
         Tuple of (ddp_rank, ddp_local_rank, ddp_world_size, device, master_process)
     """
     import torch.distributed as dist
+    from datetime import timedelta
     
     assert torch.cuda.is_available()
-    dist.init_process_group(backend='nccl')
+    dist.init_process_group(backend='nccl', timeout=timedelta(minutes=30))
     
     ddp_rank = int(os.environ['RANK'])
     ddp_local_rank = int(os.environ['LOCAL_RANK'])

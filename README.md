@@ -142,8 +142,6 @@ Post-train JSON outputs are written under:
 | `openbookqa` | `acc_norm` | Multiple-choice |
 | `siqa` | `acc_norm` | Multiple-choice |
 | `commonsense_qa` | `acc_norm` | Multiple-choice |
-| `fineweb` | `agg_score` | Mean of 8 `acc_norm` metrics (FineWeb-style aggregate) |
-| `bench` | (macro) | Expands to a default benchmark list |
 
 ### Why `acc_norm` for MMLU / MC tasks?
 

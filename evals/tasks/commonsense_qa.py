@@ -61,7 +61,7 @@ def run(
     ddp_rank: Optional[int] = None,
     ddp_world_size: Optional[int] = None,
 ) -> Dict[str, object]:
-    ds = load_dataset("commonsense_qa", split=split)
+    ds = load_dataset("tau/commonsense_qa", split=split)
     task = _CommonsenseQATask()
     counts, payload = evaluate_multiple_choice(
         task=task,

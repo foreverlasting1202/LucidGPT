@@ -269,7 +269,7 @@ def parse_args() -> TrainingConfig:
         help=(
             "comma-separated post-train tasks: "
             "pretrain,mmlu,mmlu_fineweb,hellaswag,arc_easy,arc_challenge,piqa,"
-            "winogrande,openbookqa,siqa,commonsense_qa,fineweb,bench"
+            "winogrande,openbookqa,siqa,commonsense_qa"
         ),
     )
     parser.add_argument(
