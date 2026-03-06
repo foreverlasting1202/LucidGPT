@@ -114,6 +114,13 @@ In this repo, `grad_accum_steps` is computed automatically, so startup requires:
 batch_size % (device_batch_size * WORLD_SIZE) == 0
 ```
 
+## Model Architecture
+
+The model is based on the GPT-2 architecture, incorporating several modern techniques. 
+
+The model size can be configured using the `--vocab_size`, `--n_layer`, `--n_head`, and `--n_embd` parameters in the `configs/` directory.
+
+
 ### Single node, 8 GPUs
 
 ```bash
