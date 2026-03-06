@@ -79,14 +79,78 @@ python data/cached_fineweb10B.py 8
 ```bash
 # FineWeb
 python data/fineweb.py --version 10B
-
-# FineWeb-Edu (score-prioritized token order)
-python data/finewebedu.py --stage all --overwrite
 ```
 
-### FineWeb-Edu 100B (sorted by score)
+#### FineWeb-Edu from raw HF parquet (10B / 100B / full)
 
-- Hugging Face dataset link (to be filled): `TODO: add your finewebedu100B-sorted HF link here`
+`data/finewebedu.py` does score-prioritized preprocessing in two stages:
+1. tokenize each doc and write it into score buckets on disk (`*_spool`)
+2. read buckets from high score to low score and pack final `.bin` shards
+
+Dataset source:
+- https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu
+
+If `huggingface-cli` is not installed:
+
+```bash
+python -m pip install -U "huggingface_hub[cli]"
+```
+
+Download raw parquet from HF (choose one):
+
+```bash
+# 10B sample
+huggingface-cli download --repo-type dataset HuggingFaceFW/fineweb-edu \
+  --include "sample/10BT/*.parquet" \
+  --local-dir data/fineweb-edu-10B
+
+# 100B sample
+huggingface-cli download --repo-type dataset HuggingFaceFW/fineweb-edu \
+  --include "sample/100BT/*.parquet" \
+  --local-dir data/fineweb-edu-100B
+
+# full dataset (very large)
+huggingface-cli download --repo-type dataset HuggingFaceFW/fineweb-edu \
+  --include "data/*/*.parquet" \
+  --local-dir data/fineweb-edu-full
+```
+
+Process to this repo's `.bin` format:
+
+```bash
+# 10B
+python data/finewebedu.py \
+  --data_dir data/fineweb-edu-10B \
+  --out_dir data/finewebedu10B \
+  --stage all --overwrite
+
+# 100B
+python data/finewebedu.py \
+  --data_dir data/fineweb-edu-100B \
+  --out_dir data/finewebedu100B \
+  --stage all --overwrite
+
+# full
+python data/finewebedu.py \
+  --data_dir data/fineweb-edu-full \
+  --out_dir data/finewebedu_full \
+  --stage all --overwrite
+```
+
+Optional split stages (resume-friendly, and can delete spool files after finalize):
+
+```bash
+python data/finewebedu.py \
+  --data_dir data/fineweb-edu-100B \
+  --out_dir data/finewebedu100B \
+  --stage spool --overwrite
+
+python data/finewebedu.py \
+  --data_dir data/fineweb-edu-100B \
+  --out_dir data/finewebedu100B \
+  --stage finalize --delete_spool
+```
+
 
 ## Optimizers
 
