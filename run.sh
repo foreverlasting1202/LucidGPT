@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export TORCH_DIST_INIT_BARRIER_TIMEOUT=3600  
+export TORCHELASTIC_TIMEOUT=3600          
+export NCCL_TIMEOUT=3600000  
+
 # Pass extra CLI overrides directly to main.py.
 EXTRA_ARGS=("$@")
 
