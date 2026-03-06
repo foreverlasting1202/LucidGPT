@@ -114,7 +114,7 @@ In this repo, `grad_accum_steps` is computed automatically, so startup requires:
 batch_size % (device_batch_size * WORLD_SIZE) == 0
 ```
 
-## Model Architecture
+### Model Architecture
 
 The model is based on the GPT-2 architecture, incorporating several modern techniques. 
 
