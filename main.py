@@ -12,9 +12,6 @@ import os
 import torch
 import torch.distributed as dist
 
-# Set wandb base URL before importing other modules
-os.environ['WANDB_BASE_URL'] = 'https://api.bandw.top'
-
 from args import parse_args
 from trainer import Trainer
 from utils import setup_distributed

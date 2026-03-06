@@ -18,12 +18,46 @@ Clean GPT-style pretraining with:
 ## Setup
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-Notes:
-- Training assumes CUDA + NCCL (`torchrun`).
+Prerequisites:
+- NVIDIA GPU + CUDA runtime compatible with `torch==2.7.1`.
+- Multi-GPU / multi-node launches use `torchrun` + NCCL.
 - Tokenization is GPT-2 BPE (`tiktoken`), same as the data scripts.
+
+### Tracker login (SwanLab / W&B)
+
+This repo supports both trackers:
+- SwanLab is enabled by default (`--use_swanlab` / `--no_use_swanlab`).
+- Weights & Biases is disabled by default (`--use_wandb` / `--no_use_wandb`).
+
+Login once per machine/user:
+
+```bash
+# SwanLab (interactive)
+swanlab login
+
+# Or non-interactive
+# swanlab login -k <your-api-key>
+```
+
+```bash
+wandb login
+```
+
+Enable both trackers in one run:
+
+```bash
+torchrun --standalone --nproc_per_node=8 main.py \
+  --use_swanlab --swanlab_project "act-descent" \
+  --use_wandb --wandb_project "act-descent"
+```
+
+Disable cloud tracking completely with:
+- `--no_use_swanlab --no_use_wandb`
+
+For more login and launch recipes (including multi-node), see `docs/README.md`.
 
 ## Data
 
@@ -69,7 +103,18 @@ This split keeps Muon where it is intended to be used and avoids mixing optimize
 
 ## Training
 
-Single node, 8 GPUs:
+### Batch math (important)
+
+Effective global batch is:
+- `batch_size = device_batch_size * WORLD_SIZE * grad_accum_steps`
+
+In this repo, `grad_accum_steps` is computed automatically, so startup requires:
+
+```text
+batch_size % (device_batch_size * WORLD_SIZE) == 0
+```
+
+### Single node, 8 GPUs
 
 ```bash
 torchrun --standalone --nproc_per_node=8 main.py \
@@ -83,6 +128,39 @@ torchrun --standalone --nproc_per_node=8 main.py \
   --sequence_length 1024 \
   --lr_scheduler cosine
 ```
+
+### Multi-node, multi-GPU (`torchrun`)
+
+Run the same command on every node, with different `NODE_RANK` values (`0..NNODES-1`):
+
+```bash
+export NNODES=2
+export GPUS_PER_NODE=8
+export NODE_RANK=0            # node0=0, node1=1, ...
+export MASTER_ADDR=10.0.0.1   # IP/hostname of node0
+export MASTER_PORT=29500
+
+torchrun \
+  --nnodes=$NNODES \
+  --nproc_per_node=$GPUS_PER_NODE \
+  --node_rank=$NODE_RANK \
+  --master_addr=$MASTER_ADDR \
+  --master_port=$MASTER_PORT \
+  main.py \
+  --optimizer muon \
+  --input_bin "data/fineweb10B/fineweb_train_*.bin" \
+  --input_val_bin "data/fineweb10B/fineweb_val_*.bin" \
+  --batch_size 1024 \
+  --device_batch_size 8 \
+  --sequence_length 1024
+```
+
+Multi-node checklist:
+- Use the same code revision and Python environment on every node.
+- Ensure all nodes can resolve/reach `MASTER_ADDR:MASTER_PORT`.
+- Keep data paths valid on all nodes (`--input_bin`, `--input_val_bin`).
+- Launch each `torchrun` stage in the same order on all nodes (important when chaining runs).
+- For long eval-after-train on rank0, tune `--eval_after_train_timeout_seconds` if needed.
 
 ### Important args
 
@@ -107,7 +185,7 @@ torchrun --standalone --nproc_per_node=8 main.py \
   - `--log_param_update_norm`
   - `--param_update_norm_every`
 
-Details are documented in `docs/monitoring.md`.
+Monitoring details are in `docs/monitoring.md`; launcher/login recipes are in `docs/README.md`.
 
 ## Evaluation during and after training
 
@@ -187,3 +265,4 @@ python evaluate.py \
 - `train_metrics.py`: monitoring implementation
 - `data/`: dataset download/preprocessing scripts
 - `evals/`, `evaluate.py`: evaluation framework and tasks
+- `docs/README.md`: tracker login + launch cookbook
