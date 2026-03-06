@@ -1,4 +1,4 @@
-# Activation Descent
+# Pretrain for LLMs
 
 Clean GPT-style pretraining with:
 - simple launch commands,
