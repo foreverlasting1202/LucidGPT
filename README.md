@@ -1,4 +1,4 @@
-# Pretrain for LLMs
+# LucidGPT
 
 Clean GPT-style pretraining with:
 - simple launch commands,
