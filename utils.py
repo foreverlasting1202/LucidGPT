@@ -245,7 +245,7 @@ def setup_distributed():
     from datetime import timedelta
     
     assert torch.cuda.is_available()
-    dist.init_process_group(backend='nccl', timeout=timedelta(minutes=30))
+    dist.init_process_group(backend='nccl')
     
     ddp_rank = int(os.environ['RANK'])
     ddp_local_rank = int(os.environ['LOCAL_RANK'])

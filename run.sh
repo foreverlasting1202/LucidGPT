@@ -1,18 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export TORCH_DIST_INIT_BARRIER_TIMEOUT=3600
-export TORCHELASTIC_TIMEOUT=3600
-export NCCL_TIMEOUT=36000000              
-
-# Multi-node defaults (works on single node too).
-MASTER_ADDR=${ARNOLD_WORKER_0_HOST:-127.0.0.1}
-MASTER_PORT_RAW=${ARNOLD_WORKER_0_PORT:-29500}
-MASTER_PORT=${MASTER_PORT_RAW%%,*}
-NPROC_PER_NODE=${ARNOLD_WORKER_GPU:-8}
-NNODES=${ARNOLD_WORKER_NUM:-1}
-NODE_RANK=${ARNOLD_ID:-0}
-
 # Pass extra CLI overrides directly to main.py.
 EXTRA_ARGS=("$@")
 
@@ -38,9 +26,6 @@ torchrun --standalone --nproc_per_node=8 main.py \
   --eval_tasks "pretrain,mmlu,mmlu_fineweb,hellaswag,arc_easy,arc_challenge,piqa,winogrande,openbookqa,siqa,commonsense_qa" \
   --eval_limit 1000 \
   --swanlab_project "agd_final_test"
-
-
-
 
 torchrun --standalone --nproc_per_node=8 main.py \
   --optimizer adamw \
