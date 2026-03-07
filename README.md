@@ -17,17 +17,22 @@ Clean GPT-style pretraining with:
 
 ## Example
 
-After setting the environment, run:
+After setting up the environment, run:
 
 ```bash
 bash run.sh
 ```
 
-我们会获得 150M 大小的模型在 Fineweb-10B 上的训练结果，使用 Muon+AdamW 优化器。具体训练链接为 https://swanlab.cn/@foreverlasting/agd_example?utm_source=website_qr&utm_medium=qr_scan。
+We will get the training results of the 150M model on Fineweb-10B, using the Muon+AdamW optimizer. For detailed training logs, please visit: https://swanlab.cn/@foreverlasting/agd_example?utm_source=website_qr&utm_medium=qr_scan.
 
-[](assets/train_loss.jpg)
-[](assets/val_loss.jpg)
-[](assets/eval.jpg)
+![Train Loss](assets/train_loss.jpg)
+
+![Val Loss](assets/val_loss.jpg)
+
+![Eval](assets/eval.jpg)
+
+
+
 
 
 ## Setup
