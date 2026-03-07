@@ -29,27 +29,27 @@ torchrun --standalone --nproc_per_node=8 main.py \
   --eval_during_train_tasks "mmlu_fineweb,hellaswag,arc_challenge" \
   --eval_tasks "pretrain,mmlu,mmlu_fineweb,hellaswag,arc_easy,arc_challenge,piqa,winogrande,openbookqa,siqa,commonsense_qa" \
   --eval_limit 1000 \
-  --swanlab_project "agd_final_test"
+  --swanlab_project "agd_example"
 
-torchrun --standalone --nproc_per_node=8 main.py \
-  --optimizer adamw \
-  --input_bin "data/fineweb10B/fineweb_train_*.bin" \
-  --input_val_bin "data/fineweb10B/fineweb_val_*.bin" \
-  --adamw_learning_rate 0.0036 \
-  --adamw_beta1 0.9 \
-  --adamw_beta2 0.98 \
-  --adamw_eps 1e-8 \
-  --weight_decay 0.1 \
-  --num_iterations 6000 \
-  --warmup_iters 600 \
-  --warmdown_iters 6000 \
-  --batch_size 512 \
-  --device_batch_size 8 \
-  --sequence_length 1024 \
-  --lr_scheduler cosine \
-  --log_activation_norm \
-  --log_activation_update_norm \
-  --log_param_update_norm \
-  --eval_tasks "pretrain,mmlu,mmlu_fineweb,hellaswag,arc_easy,arc_challenge,piqa,winogrande,openbookqa,siqa,commonsense_qa" \
-  --eval_limit 1000 \
-  --swanlab_project "agd_final_test"
+# torchrun --standalone --nproc_per_node=8 main.py \
+#   --optimizer adamw \
+#   --input_bin "data/fineweb10B/fineweb_train_*.bin" \
+#   --input_val_bin "data/fineweb10B/fineweb_val_*.bin" \
+#   --adamw_learning_rate 0.0036 \
+#   --adamw_beta1 0.9 \
+#   --adamw_beta2 0.98 \
+#   --adamw_eps 1e-8 \
+#   --weight_decay 0.1 \
+#   --num_iterations 6000 \
+#   --warmup_iters 600 \
+#   --warmdown_iters 6000 \
+#   --batch_size 512 \
+#   --device_batch_size 8 \
+#   --sequence_length 1024 \
+#   --lr_scheduler cosine \
+#   --log_activation_norm \
+#   --log_activation_update_norm \
+#   --log_param_update_norm \
+#   --eval_tasks "pretrain,mmlu,mmlu_fineweb,hellaswag,arc_easy,arc_challenge,piqa,winogrande,openbookqa,siqa,commonsense_qa" \
+#   --eval_limit 1000 \
+#   --swanlab_project "agd_example"
