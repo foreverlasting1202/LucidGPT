@@ -15,6 +15,10 @@ Clean GPT-style pretraining with:
 - Benchmark coverage is broad and can run while training.
 - Monitoring is first-class for diagnosing optimization issues.
 
+## Mano Log
+
+https://swanlab.cn/@foreverlasting/mano_search?utm_source=website_qr&utm_medium=qr_scan
+
 ## Setup
 
 ```bash
