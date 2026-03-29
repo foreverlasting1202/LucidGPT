@@ -27,7 +27,7 @@ class TrainingConfig:
     warmdown_iters: int
     weight_decay: float
 
-    # AdamW (used by both optimizer modes)
+    # AdamW (used in all optimizer modes)
     adamw_learning_rate: float
     adamw_beta1: float
     adamw_beta2: float
@@ -39,6 +39,15 @@ class TrainingConfig:
     muon_nesterov: bool
     muon_backend: str
     muon_backend_steps: int
+
+    # Mano-specific (only used when optimizer=mano)
+    mano_learning_rate: float
+    mano_momentum: float
+    mano_nesterov: bool
+    mano_eps: float
+    mano_adamw_beta1: float
+    mano_adamw_beta2: float
+    mano_adamw_eps: float
 
     # Model
     vocab_size: int
@@ -106,21 +115,37 @@ def _add_bool_arg(
 
 
 def _default_run_name(config: TrainingConfig) -> str:
-    parts = [
-        config.optimizer,
-        f"adamwlr-{config.adamw_learning_rate:g}",
-        f"wd-{config.weight_decay:g}",
-        f"nlayer-{config.n_layer}",
-        f"nhead-{config.n_head}",
-        f"nembd-{config.n_embd}",
-        f"sched-{config.lr_scheduler}",
-    ]
+    parts = [config.optimizer]
+    if config.optimizer in ("adamw", "muon"):
+        parts.append(f"adamwlr-{config.adamw_learning_rate:g}")
+    parts.extend(
+        [
+            f"wd-{config.weight_decay:g}",
+            f"nlayer-{config.n_layer}",
+            f"nhead-{config.n_head}",
+            f"nembd-{config.n_embd}",
+            f"sched-{config.lr_scheduler}",
+        ]
+    )
     if config.optimizer == "muon":
         parts.extend(
             [
                 f"muonlr-{config.muon_learning_rate:g}",
                 f"muonmom-{config.muon_momentum:g}",
                 f"ns-{config.muon_backend_steps}",
+            ]
+        )
+    elif config.optimizer == "mano":
+        parts.extend(
+            [
+                f"manolr-{config.mano_learning_rate:g}",
+                f"manomom-{config.mano_momentum:g}",
+                f"manoeps-{config.mano_eps:g}",
+                f"mano_nesterov-{int(config.mano_nesterov)}",
+                f"mano_adamw_beta1-{config.mano_adamw_beta1:g}",
+                f"mano_adamw_beta2-{config.mano_adamw_beta2:g}",
+                f"mano_adamw_eps-{config.mano_adamw_eps:g}",
+                f"mano_adamw_lr-{config.adamw_learning_rate:g}",
             ]
         )
     return "-".join(parts)
@@ -149,8 +174,8 @@ def parse_args() -> TrainingConfig:
         "--optimizer",
         type=str,
         default="muon",
-        choices=["adamw", "muon"],
-        help="optimizer mode: adamw (single optimizer) or muon (Muon+AdamW)",
+        choices=["adamw", "muon", "mano"],
+        help="optimizer mode: adamw, muon (Muon+AdamW), or mano",
     )
     parser.add_argument(
         "--lr_scheduler",
@@ -202,6 +227,22 @@ def parse_args() -> TrainingConfig:
         help="iterations for Muon backend when using iterative orthogonalization",
     )
 
+    
+    # Mano hyperparameters
+    parser.add_argument("--mano_learning_rate", type=float, default=0.02, help="Mano learning rate")
+    parser.add_argument("--mano_momentum", type=float, default=0.95, help="Mano momentum")
+    _add_bool_arg(
+        parser,
+        name="mano_nesterov",
+        default=True,
+        help_true="enable Nesterov momentum in Mano",
+        help_false="disable Nesterov momentum in Mano",
+    )
+    parser.add_argument("--mano_eps", type=float, default=1e-8, help="Mano normalization epsilon")
+    parser.add_argument("--mano_adamw_beta1", type=float, default=0.9, help="Mano internal AdamW beta1")
+    parser.add_argument("--mano_adamw_beta2", type=float, default=0.95, help="Mano internal AdamW beta2")
+    parser.add_argument("--mano_adamw_eps", type=float, default=1e-8, help="Mano internal AdamW epsilon")
+
     # Model
     parser.add_argument("--vocab_size", type=int, default=50304, help="vocabulary size")
     parser.add_argument("--n_layer", type=int, default=12, help="number of transformer layers")
@@ -252,7 +293,7 @@ def parse_args() -> TrainingConfig:
     _add_bool_arg(
         parser,
         name="eval_after_train",
-        default=True,
+        default=False,
         help_true="run eval automatically after training",
         help_false="skip post-train eval",
     )
@@ -265,7 +306,7 @@ def parse_args() -> TrainingConfig:
     parser.add_argument(
         "--eval_tasks",
         type=str,
-        default="fineweb",
+        default="",
         help=(
             "comma-separated post-train tasks: "
             "pretrain,mmlu,mmlu_fineweb,hellaswag,arc_easy,arc_challenge,piqa,"
@@ -363,6 +404,17 @@ def parse_args() -> TrainingConfig:
 
     args = parser.parse_args()
     config = TrainingConfig(**vars(args))
+
+    if not (0.0 <= config.mano_momentum < 1.0):
+        raise ValueError("--mano_momentum must be in [0, 1)")
+    if config.mano_eps <= 0:
+        raise ValueError("--mano_eps must be > 0")
+    if not (0.0 <= config.mano_adamw_beta1 < 1.0):
+        raise ValueError("--mano_adamw_beta1 must be in [0, 1)")
+    if not (0.0 <= config.mano_adamw_beta2 < 1.0):
+        raise ValueError("--mano_adamw_beta2 must be in [0, 1)")
+    if config.mano_adamw_eps <= 0:
+        raise ValueError("--mano_adamw_eps must be > 0")
 
     if not config.wandb_run_name:
         config.wandb_run_name = _default_run_name(config)

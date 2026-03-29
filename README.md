@@ -15,26 +15,6 @@ Clean GPT-style pretraining with:
 - Benchmark coverage is broad and can run while training.
 - Monitoring is first-class for diagnosing optimization issues.
 
-## Example
-
-After setting up the environment, run:
-
-```bash
-bash run.sh
-```
-
-We will get the training results of the 150M model on Fineweb-10B, using the Muon+AdamW optimizer. For detailed training logs, please visit: https://swanlab.cn/@foreverlasting/agd_example?utm_source=website_qr&utm_medium=qr_scan.
-
-![Train Loss](assets/train_loss.jpg)
-
-![Val Loss](assets/val_loss.jpg)
-
-![Eval](assets/eval.jpg)
-
-
-
-
-
 ## Setup
 
 ```bash
@@ -357,5 +337,3 @@ python evaluate.py \
 - `data/`: dataset download/preprocessing scripts
 - `evals/`, `evaluate.py`: evaluation framework and tasks
 - `docs/README.md`: tracker login + launch cookbook
-
-

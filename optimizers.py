@@ -1,5 +1,5 @@
 """
-Optimizer setup for AdamW and Muon+AdamW.
+Optimizer setup for AdamW, Muon+AdamW, Ours, and Mano.
 """
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import torch
 
 from args import TrainingConfig
 from optim.adamw import MonitoredAdamW
+from optim.mano import Mano_v2
 from optim.muon import Muon
 
 
@@ -56,14 +57,14 @@ def create_adamw_optimizers(
     return [optimizer]
 
 
-def _split_muon_adamw_param_groups(
+def _split_matrix_optimizer_adamw_param_groups(
     raw_model,
 ) -> Tuple[List[Tuple[str, torch.nn.Parameter]], List[Tuple[str, torch.nn.Parameter]]]:
     """
-    Split trainable params into AdamW and Muon groups.
+    Split trainable params into AdamW and matrix-optimizer groups.
 
     Policy:
-    - Muon: 2D matrices in transformer blocks (`transformer.h.*`)
+    - Matrix optimizer: 2D matrices in transformer blocks (`transformer.h.*`)
     - AdamW: everything else (embeddings, lm_head, norms, biases, 1D params)
     """
     all_named_params: List[Tuple[str, torch.nn.Parameter]] = []
@@ -73,30 +74,49 @@ def _split_muon_adamw_param_groups(
         all_named_params.append((_canonical_param_name(name), param))
 
     adamw_named_params: List[Tuple[str, torch.nn.Parameter]] = []
-    muon_named_params: List[Tuple[str, torch.nn.Parameter]] = []
+    matrix_named_params: List[Tuple[str, torch.nn.Parameter]] = []
 
-    # Preferred route: Muon on 2D matrices in transformer blocks.
+    # Preferred route: use matrix optimizer on 2D matrices in transformer blocks.
     for name, param in all_named_params:
         if name.startswith("transformer.h.") and param.dim() == 2:
-            muon_named_params.append((name, param))
+            matrix_named_params.append((name, param))
         else:
             adamw_named_params.append((name, param))
 
     # Fallback for wrapped/custom models where names differ:
-    # use Muon on any eligible 2D matrix except embeddings/lm_head.
-    if not muon_named_params:
+    # use matrix optimizer on any eligible 2D matrix except embeddings/lm_head.
+    if not matrix_named_params:
         adamw_named_params = []
-        muon_named_params = []
+        matrix_named_params = []
         for name, param in all_named_params:
             is_forced_adamw = (
                 name.startswith("transformer.wte.")
                 or name.startswith("lm_head.")
             )
             if (param.dim() == 2) and (not is_forced_adamw):
-                muon_named_params.append((name, param))
+                matrix_named_params.append((name, param))
             else:
                 adamw_named_params.append((name, param))
-    return adamw_named_params, muon_named_params
+    return adamw_named_params, matrix_named_params
+
+
+def _log_optimizer_split(
+    *,
+    tag: str,
+    matrix_label: str,
+    ddp_rank: int,
+    adamw_named_params: List[Tuple[str, torch.nn.Parameter]],
+    matrix_named_params: List[Tuple[str, torch.nn.Parameter]],
+) -> None:
+    if int(ddp_rank) != 0:
+        return
+    adamw_numel = sum(p.numel() for _, p in adamw_named_params)
+    matrix_numel = sum(p.numel() for _, p in matrix_named_params)
+    print(
+        f"optimizer split ({tag}): "
+        f"adamw={len(adamw_named_params)} params / {adamw_numel} elems, "
+        f"{matrix_label}={len(matrix_named_params)} params / {matrix_numel} elems"
+    )
 
 
 def create_muon_optimizers(
@@ -110,7 +130,7 @@ def create_muon_optimizers(
     - AdamW for non-matrix / non-transformer-block params
     - Muon for 2D matrices in transformer blocks
     """
-    adamw_named_params, muon_named_params = _split_muon_adamw_param_groups(raw_model)
+    adamw_named_params, muon_named_params = _split_matrix_optimizer_adamw_param_groups(raw_model)
     if not adamw_named_params:
         raise ValueError("Muon+AdamW split produced an empty AdamW parameter group")
     if not muon_named_params:
@@ -120,14 +140,13 @@ def create_muon_optimizers(
             f"Sample parameter names: {sample_names}"
         )
 
-    if int(ddp_rank) == 0:
-        adamw_numel = sum(p.numel() for _, p in adamw_named_params)
-        muon_numel = sum(p.numel() for _, p in muon_named_params)
-        print(
-            "optimizer split (Muon+AdamW): "
-            f"adamw={len(adamw_named_params)} params / {adamw_numel} elems, "
-            f"muon={len(muon_named_params)} params / {muon_numel} elems"
-        )
+    _log_optimizer_split(
+        tag="Muon+AdamW",
+        matrix_label="muon",
+        ddp_rank=ddp_rank,
+        adamw_named_params=adamw_named_params,
+        matrix_named_params=muon_named_params,
+    )
 
     adamw_opt = MonitoredAdamW(named_params=adamw_named_params, **_adamw_kwargs(config))
     muon_opt = Muon(
@@ -145,6 +164,47 @@ def create_muon_optimizers(
     return [adamw_opt, muon_opt]
 
 
+def create_mano_optimizers(
+    config: TrainingConfig,
+    raw_model,
+    ddp_rank: int,
+    ddp_world_size: int,
+) -> List[Any]:
+    """
+    Create a single Mano optimizer:
+    - Mano branch for 2D transformer-block matrices
+    - internal AdamW fallback branch for remaining parameters
+    """
+    _ = ddp_world_size
+    adamw_named_params, mano_named_params = _split_matrix_optimizer_adamw_param_groups(raw_model)
+    if not adamw_named_params and not mano_named_params:
+        raise ValueError("Mano optimizer received no trainable parameters")
+
+    _log_optimizer_split(
+        tag="Mano",
+        matrix_label="mano",
+        ddp_rank=ddp_rank,
+        adamw_named_params=adamw_named_params,
+        matrix_named_params=mano_named_params,
+    )
+
+    all_named_params = mano_named_params + adamw_named_params
+    mano_opt = Mano_v2(
+        lr=config.mano_learning_rate,
+        adamw_lr=config.adamw_learning_rate,
+        wd=config.weight_decay,
+        eps=config.mano_eps,
+        mano_params=[p for _, p in mano_named_params],
+        momentum=config.mano_momentum,
+        nesterov=config.mano_nesterov,
+        adamw_params=[p for _, p in adamw_named_params],
+        adamw_betas=(config.mano_adamw_beta1, config.mano_adamw_beta2),
+        adamw_eps=config.mano_adamw_eps,
+        param_names=[name for name, _ in all_named_params],
+    )
+    return [mano_opt]
+
+
 def create_optimizers(config: TrainingConfig, raw_model, ddp_rank: int, ddp_world_size: int) -> List[Any]:
     """
     Factory function to create optimizers based on configuration.
@@ -152,6 +212,7 @@ def create_optimizers(config: TrainingConfig, raw_model, ddp_rank: int, ddp_worl
     optimizer_factories = {
         "adamw": create_adamw_optimizers,
         "muon": create_muon_optimizers,
+        "mano": create_mano_optimizers,
     }
     if config.optimizer not in optimizer_factories:
         raise ValueError(
